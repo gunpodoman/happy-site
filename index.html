@@ -205,17 +205,10 @@
       background:#f3f4f6;
       color: var(--text-dark);
     }
-
-    .done-actions{
-      margin-top: 14px;
-      display:flex;
-      justify-content:flex-end;
-    }
   </style>
 </head>
 
 <body>
-  <!-- 1번째 페이지 -->
   <section class="terms-wrap" id="pageTerms">
     <header class="terms-header">
       <h1 class="terms-title">약관 동의</h1>
@@ -223,7 +216,6 @@
     </header>
 
     <div class="terms-box" aria-label="약관 동의 목록">
-      <!-- 전체 동의: "토글만" 담당 -->
       <div class="term-row">
         <input id="agreeAll" type="checkbox" />
         <div class="term-main">
@@ -235,7 +227,6 @@
         </div>
       </div>
 
-      <!-- 필수 -->
       <div class="term-row">
         <input class="req" id="req1" type="checkbox" />
         <div class="term-main">
@@ -275,7 +266,6 @@
         </div>
       </div>
 
-      <!-- 선택 -->
       <div class="term-row optional">
         <input class="opt" id="opt1" type="checkbox" />
         <div class="term-main">
@@ -316,21 +306,6 @@
     </div>
   </section>
 
-  <!-- 2번째 페이지 -->
-  <section class="terms-wrap" id="pageDone" style="display:none;">
-    <header class="terms-header">
-      <h1 class="terms-title">약관에 동의되었습니다</h1>
-      <p class="terms-sub">동의 처리가 완료되었습니다. 이제 서비스를 이용하실 수 있습니다.</p>
-    </header>
-
-    <div class="terms-box" style="padding:16px;">
-      <div class="done-actions">
-        <button class="btn primary" type="button" onclick="alert('다음 단계로 이동 처리');">계속</button>
-      </div>
-    </div>
-  </section>
-
-  <!-- 공용 팝업 -->
   <div class="modal-bg" id="modalBg" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
     <div class="modal">
       <h3 id="modalTitle">안내</h3>
@@ -342,7 +317,7 @@
   <script>
     const $ = (s) => document.querySelector(s);
 
-    // 체크박스 (중요: input[type="checkbox"]만 선택)
+    // 체크박스: input만 선택
     const agreeAll = $("#agreeAll");
     const req = Array.from(document.querySelectorAll('input.req[type="checkbox"]'));
     const opt = Array.from(document.querySelectorAll('input.opt[type="checkbox"]'));
@@ -351,21 +326,11 @@
     const btnReset = $("#btnReset");
     const btnContinue = $("#btnContinue");
 
-    // 페이지
-    const pageTerms = $("#pageTerms");
-    const pageDone = $("#pageDone");
-
     // 모달
     const modalBg = $("#modalBg");
     const modalTitle = $("#modalTitle");
     const modalDesc = $("#modalDesc");
     const modalActions = $("#modalActions");
-
-    function showDonePage(){
-      pageTerms.style.display = "none";
-      pageDone.style.display = "block";
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    }
 
     function openModal({ title, desc, buttons }){
       modalTitle.textContent = title;
@@ -388,19 +353,28 @@
       modalBg.style.display = "none";
     }
 
-    // ====== 핵심 규칙 ======
-    // 1) 필수/선택 여부 판단은 req/opt 체크 상태만으로 한다.
-    // 2) "전체 동의"는 상태 표시 + 일괄 토글만 한다(검증/진행 판단에 관여하지 않음).
+    // 완료 처리: 설문 링크로 열린 "새 창"이라면 닫힘
+    function finishAndClose(){
+      // 새로 열린 창이면 닫힘 (window.open / target=_blank 등)
+      window.close();
 
-    function isReqAllChecked(){
-      return req.every(x => x.checked);
+      // 같은 탭/환경에서 자동 닫기가 막히는 경우 안내
+      setTimeout(() => {
+        if (!window.closed) {
+          openModal({
+            title: "완료",
+            desc: "동의가 완료되었습니다. 이 탭(창)을 닫고 설문으로 돌아가 주세요.",
+            buttons: [
+              { text: "확인", className: "primary", onClick: closeModal }
+            ]
+          });
+        }
+      }, 150);
     }
 
-    function isOptAllChecked(){
-      return opt.every(x => x.checked);
-    }
+    function isReqAllChecked(){ return req.every(x => x.checked); }
+    function isOptAllChecked(){ return opt.every(x => x.checked); }
 
-    // 전체 동의 체크박스는 "현재 req+opt 상태를 반영"만 한다(표시 전용)
     function refreshAgreeAllView(){
       const all = [...req, ...opt];
       const checkedCount = all.filter(x => x.checked).length;
@@ -412,13 +386,10 @@
       agreeAll.indeterminate = (!allOn && !noneOn);
     }
 
-    // 전체 동의는 "일괄 토글"만 수행한다
     function toggleAllByAgreeAll(state){
       [...req, ...opt].forEach(x => x.checked = state);
       refreshAgreeAllView();
     }
-
-    // ====== 이벤트 ======
 
     // 전체 동의: 토글만
     agreeAll.addEventListener("change", (e) => {
@@ -426,19 +397,16 @@
     });
 
     // 개별 체크: 전체 동의 표시만 갱신
-    [...req, ...opt].forEach(x => x.addEventListener("change", () => {
-      refreshAgreeAllView();
-    }));
+    [...req, ...opt].forEach(x => x.addEventListener("change", refreshAgreeAllView));
 
-    // 초기화: 전부 해제 + 전체동의 표시 갱신
+    // 초기화
     btnReset.addEventListener("click", () => {
       [...req, ...opt].forEach(x => x.checked = false);
       refreshAgreeAllView();
     });
 
-    // 진행 버튼: req/opt 상태만으로 판단 (전체 동의는 여기서 어떤 신호도 주지 않음)
+    // 진행 버튼: req/opt 상태만으로 판단
     btnContinue.addEventListener("click", () => {
-      // (1) 필수 미동의: 필수 동의 팝업 + 진행 불가
       if(!isReqAllChecked()){
         openModal({
           title: "필수 항목 확인",
@@ -457,41 +425,27 @@
         return;
       }
 
-      // (2) 필수는 됐는데 선택 미동의: 팝업 1회, '계속 이용하기' 누르면 다음 페이지
       if(!isOptAllChecked()){
         openModal({
           title: "선택 항목 확인",
-          desc: "선택 항목 중 미동의된 내용이 있습니다. 필요에 따라 안내·혜택 또는 일부 연동 범위가 달라질 수 있으니, 한 번 더 확인해 주세요.",
+          desc: "선택 항목 중 미동의된 내용이 있습니다. 미동의 상태로 계속 진행할 수 있습니다.",
           buttons: [
-            {
-              text: "약관 다시 확인하기",
-              className: "soft",
-              onClick: () => { closeModal(); /* 현재 페이지 유지 */ }
-            },
-            {
-              text: "계속 이용하기",
-              className: "primary dim",
-              onClick: () => { closeModal(); showDonePage(); }
-            }
+            { text: "약관 다시 확인하기", className: "soft", onClick: closeModal },
+            { text: "동의하고 계속", className: "primary dim", onClick: () => { closeModal(); finishAndClose(); } }
           ]
         });
         return;
       }
 
-      // (3) 전부 동의: 바로 완료 페이지
-      showDonePage();
+      // 전부 동의면 바로 닫기
+      finishAndClose();
     });
 
     // 모달 닫기
-    modalBg.addEventListener("click", (e) => {
-      if(e.target === modalBg) closeModal();
-    });
+    modalBg.addEventListener("click", (e) => { if(e.target === modalBg) closeModal(); });
+    window.addEventListener("keydown", (e) => { if(e.key === "Escape" && modalBg.style.display === "flex") closeModal(); });
 
-    window.addEventListener("keydown", (e) => {
-      if(e.key === "Escape" && modalBg.style.display === "flex") closeModal();
-    });
-
-    // 초기 표시 동기화
+    // 초기 표시
     refreshAgreeAllView();
   </script>
 </body>
